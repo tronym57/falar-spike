@@ -29,6 +29,9 @@
   .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); } .pending { color:var(--muted); }
   label { font-size:14px; color:var(--muted); }
   audio { width:100%; margin-top:6px; }
+  .pick { display:flex; gap:10px; align-items:flex-start; padding:10px; margin:6px 0; border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:16px; }
+  .pick input { width:auto; margin:4px 0 0; flex:none; }
+  .pick:has(input:checked) { border-color:var(--accent); }
 </style>
 </head>
 <body>
@@ -45,13 +48,13 @@
   <label>Voice</label>
   <select id="voice"></select>
   <label>Sentence</label>
-  <select id="sentence">
-    <option>Bom dia! Queria um galão e um pastel de nata, por favor.</option>
-    <option>Está boa a onda hoje no Baleal?</option>
-    <option>Desculpe, pode repetir mais devagar? Não percebi.</option>
-    <option>Moro no terceiro andar. Pode deixar à porta.</option>
-    <option>Estou a aprender português. Chamo-me Ana.</option>
-  </select>
+  <div id="sentences">
+    <label class="pick"><input type="radio" name="sentence" checked><span>Bom dia! Queria um galão e um pastel de nata, por favor.</span></label>
+    <label class="pick"><input type="radio" name="sentence"><span>Está boa a onda hoje no Baleal?</span></label>
+    <label class="pick"><input type="radio" name="sentence"><span>Desculpe, pode repetir mais devagar? Não percebi.</span></label>
+    <label class="pick"><input type="radio" name="sentence"><span>Moro no terceiro andar. Pode deixar à porta.</span></label>
+    <label class="pick"><input type="radio" name="sentence"><span>Estou a aprender português. Chamo-me Ana.</span></label>
+  </div>
   <div class="row">
     <button id="speak">▶ Speak 1×</button>
     <button id="speakSlow" class="secondary">▶ 0.7×</button>
@@ -105,6 +108,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
+const sentence = () => document.querySelector('input[name=sentence]:checked').nextElementSibling.textContent;
 const results = {};
 function set(key, status, detail) {
   results[key] = { status, ...detail };
@@ -151,7 +155,7 @@ function loadVoices() {
 if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
 function speak(rate) {
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance($('sentence').value);
+  const u = new SpeechSynthesisUtterance(sentence());
   const v = voices[+$('voice').value];
   if (v) u.voice = v;
   u.lang = v ? v.lang : 'pt-PT';
@@ -193,7 +197,7 @@ $('asrStart').onclick = () => {
   if (!SR) { set('asr', 'fail', { error: 'not supported' }); $('asr-out').textContent = 'Not supported in this mode.'; return; }
   const r = new SR();
   r.lang = 'pt-PT'; r.interimResults = true; r.maxAlternatives = 3; r.continuous = false;
-  const target = $('sentence').value;
+  const target = sentence();
   let final = null;
   $('asr-out').textContent = 'Listening…';
   r.onresult = e => {
@@ -269,7 +273,7 @@ $('gemRun').onclick = async () => {
     const ms = Math.round(performance.now() - t0);
     if (!resp.ok) throw new Error(`${resp.status}: ${data.error?.message || 'unknown error'}`);
     const text = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('').trim() || '';
-    const score = similarity($('sentence').value, text);
+    const score = similarity(sentence(), text);
     $('gem-out').textContent = `Heard: ${text}\nWord match vs target: ${(score * 100).toFixed(0)}%  ·  ${ms} ms`;
     set('gem', score >= 0.7 ? 'pass' : 'partial', { model: $('gemModel').value, mime, heard: text, wordMatch: +score.toFixed(2), ms });
   } catch (e) { set('gem', 'fail', { error: e.message }); $('gem-out').textContent = 'Error: ' + e.message; }
