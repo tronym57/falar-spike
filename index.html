@@ -67,6 +67,25 @@
 </section>
 
 <section>
+  <h2>1b · Neural voices (pre-generated) <span id="b-neural" class="badge pending">not run</span></h2>
+  <p class="out">Same sentence as selected above, made with Microsoft's pt-PT neural voices (via edge-tts). Compare with Joana.</p>
+  <div class="row">
+    <button data-voice="raquel">▶ Raquel 1×</button>
+    <button data-voice="raquel" data-rate="0.7" class="secondary">0.7×</button>
+  </div>
+  <div class="row">
+    <button data-voice="duarte">▶ Duarte 1×</button>
+    <button data-voice="duarte" data-rate="0.7" class="secondary">0.7×</button>
+  </div>
+  <label>Which sounds best?</label>
+  <div class="row">
+    <button data-pick="Raquel" class="secondary">Raquel</button>
+    <button data-pick="Duarte" class="secondary">Duarte</button>
+    <button data-pick="Joana" class="secondary">Joana</button>
+  </div>
+</section>
+
+<section>
   <h2>2 · Mic recording <span id="b-rec" class="badge pending">not run</span></h2>
   <div class="row">
     <button id="recStart">● Record</button>
@@ -168,6 +187,18 @@ $('speakSlow').onclick = () => speak(0.7);
 const ttsVerdict = ok => set('tts', ok ? 'pass' : 'fail', { voice: voices[+$('voice').value]?.name, verdict: ok ? 'sounds European' : 'sounds Brazilian / bad', ...results.ttsVoices });
 $('ttsGood').onclick = () => ttsVerdict(true);
 $('ttsBad').onclick = () => ttsVerdict(false);
+
+// 1b · Neural voices
+const neural = new Audio();
+document.querySelectorAll('[data-voice]').forEach(b => b.onclick = () => {
+  speechSynthesis.cancel();
+  const n = [...document.querySelectorAll('input[name=sentence]')].findIndex(i => i.checked) + 1;
+  neural.src = `audio/${b.dataset.voice}-${n}.mp3`;
+  neural.playbackRate = +(b.dataset.rate || 1);
+  neural.preservesPitch = true;
+  neural.play().catch(e => set('neural', 'fail', { error: e.message }));
+});
+document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => set('neural', 'pass', { bestVoice: b.dataset.pick }));
 
 // 2 · Recording
 let recorder, chunks = [], lastBlob = null;

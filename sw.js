@@ -1,5 +1,5 @@
 // Minimal offline cache: serves the app shell when there's no signal.
-const CACHE = 'falar-spike-v1';
+const CACHE = 'falar-spike-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
