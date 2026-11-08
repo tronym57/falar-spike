@@ -21,6 +21,8 @@
   section { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px; }
   button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:11px 14px; background:var(--accent); color:#fff; margin:4px 4px 4px 0; min-height:44px; }
   button.secondary { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  button.secondary.chosen { background:var(--accent); color:#fff; }
+  .saved { font-size:14px; font-weight:600; color:var(--ok); }
   button:disabled { opacity:.4; }
   select, input, textarea { font:inherit; width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); margin:4px 0; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
@@ -185,8 +187,16 @@ function speak(rate) {
 $('speak').onclick = () => speak(1);
 $('speakSlow').onclick = () => speak(0.7);
 const ttsVerdict = ok => set('tts', ok ? 'pass' : 'fail', { voice: voices[+$('voice').value]?.name, verdict: ok ? 'sounds European' : 'sounds Brazilian / bad', ...results.ttsVoices });
-$('ttsGood').onclick = () => ttsVerdict(true);
-$('ttsBad').onclick = () => ttsVerdict(false);
+// Fill the tapped button and show "Saved" next to it, so a tap is visibly recorded.
+function choose(btn) {
+  const row = btn.parentElement;
+  row.querySelectorAll('button').forEach(b => b.classList.toggle('chosen', b === btn));
+  let note = row.querySelector('.saved');
+  if (!note) { note = document.createElement('span'); note.className = 'saved'; row.appendChild(note); }
+  note.textContent = 'Saved ✓';
+}
+$('ttsGood').onclick = e => { ttsVerdict(true); choose(e.currentTarget); };
+$('ttsBad').onclick = e => { ttsVerdict(false); choose(e.currentTarget); };
 
 // 1b · Neural voices
 const neural = new Audio();
@@ -198,7 +208,7 @@ document.querySelectorAll('[data-voice]').forEach(b => b.onclick = () => {
   neural.preservesPitch = true;
   neural.play().catch(e => set('neural', 'fail', { error: e.message }));
 });
-document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => set('neural', 'pass', { bestVoice: b.dataset.pick }));
+document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { set('neural', 'pass', { bestVoice: b.dataset.pick }); choose(b); });
 
 // 2 · Recording
 let recorder, chunks = [], lastBlob = null;
