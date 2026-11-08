@@ -233,29 +233,43 @@ $('recStart').onclick = async () => {
 $('recStop').onclick = () => { recorder.stop(); $('recStart').disabled = false; $('recStop').disabled = true; };
 
 // 3 · Speech recognition
+// iOS often never marks a result as final, so we keep the latest text heard,
+// stop after 2.5 s of silence (or on tap), and score whatever was heard.
+let asr = null;
 $('asrStart').onclick = () => {
+  if (asr) { asr.stop(); return; }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { set('asr', 'fail', { error: 'not supported' }); $('asr-out').textContent = 'Not supported in this mode.'; return; }
-  const r = new SR();
+  const r = asr = new SR();
   r.lang = 'pt-PT'; r.interimResults = true; r.maxAlternatives = 3; r.continuous = false;
   const target = sentence();
-  let final = null;
-  $('asr-out').textContent = 'Listening…';
+  let heard = '', gotFinal = false, error = null, silence;
+  const armSilence = () => { clearTimeout(silence); silence = setTimeout(() => r.stop(), 2500); };
+  $('asrStart').textContent = '■ Stop';
+  $('asr-out').textContent = 'Listening… say the sentence, or tap Stop.';
   r.onresult = e => {
     const res = e.results[e.results.length - 1];
+    heard = Array.from(e.results).map(x => x[0].transcript).join(' ').trim();
+    gotFinal = res.isFinal;
     const alts = Array.from(res).map(a => `${a.transcript} (${(a.confidence * 100).toFixed(0)}%)`);
     $('asr-out').textContent = (res.isFinal ? 'Final: ' : 'Hearing: ') + alts.join('\n  alt: ');
-    if (res.isFinal) final = res[0].transcript;
+    armSilence();
   };
-  r.onerror = e => { set('asr', 'fail', { error: e.error }); $('asr-out').textContent = 'Error: ' + e.error; };
+  r.onerror = e => { error = e.error; };
   r.onend = () => {
-    if (results.asr?.status === 'fail' && !final) return;
-    if (!final) { set('asr', 'fail', { error: 'no result' }); $('asr-out').textContent += '\nNo result.'; return; }
-    const score = similarity(target, final);
-    $('asr-out').textContent += `\nWord match vs target: ${(score * 100).toFixed(0)}%`;
-    set('asr', score >= 0.7 ? 'pass' : 'partial', { target, heard: final, wordMatch: +score.toFixed(2) });
+    clearTimeout(silence);
+    asr = null;
+    $('asrStart').textContent = '🎤 Listen';
+    if (!heard) {
+      set('asr', 'fail', { error: error || 'no speech heard' });
+      $('asr-out').textContent = 'Nothing heard' + (error ? ` (${error})` : '') + '. Try again.';
+      return;
+    }
+    const score = similarity(target, heard);
+    $('asr-out').textContent = `Heard: ${heard}\nWord match vs target: ${(score * 100).toFixed(0)}%`;
+    set('asr', score >= 0.7 ? 'pass' : 'partial', { target, heard, wordMatch: +score.toFixed(2), markedFinal: gotFinal, error });
   };
-  try { r.start(); } catch (e) { set('asr', 'fail', { error: e.message }); }
+  try { r.start(); } catch (e) { asr = null; $('asrStart').textContent = '🎤 Listen'; set('asr', 'fail', { error: e.message }); }
 };
 
 // 4 · Storage
