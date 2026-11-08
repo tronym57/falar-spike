@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Falar Spike">
+<meta name="theme-color" content="#0b6e4f">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Falar Spike</title>
+<style>
+  :root { --bg:#f6f7f5; --card:#fff; --text:#1b1f1d; --muted:#5d6661; --accent:#0b6e4f; --ok:#1a7f37; --bad:#c62828; --warn:#a15c00; --border:#dde2df; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111413; --card:#1b201e; --text:#e8ece9; --muted:#9aa5a0; --accent:#3fb68b; --ok:#4cc26b; --bad:#ef6b6b; --warn:#e3a33b; --border:#2c3330; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 -apple-system, system-ui, sans-serif;
+         padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 32px); }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h2 { font-size:17px; margin:0 0 8px; display:flex; justify-content:space-between; gap:8px; }
+  .sub { color:var(--muted); font-size:14px; margin:0 0 16px; }
+  section { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px; }
+  button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:11px 14px; background:var(--accent); color:#fff; margin:4px 4px 4px 0; min-height:44px; }
+  button.secondary { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  button:disabled { opacity:.4; }
+  select, input, textarea { font:inherit; width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); margin:4px 0; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .out { font-size:14px; color:var(--muted); white-space:pre-wrap; word-break:break-word; margin-top:6px; }
+  .badge { font-size:12px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid currentColor; white-space:nowrap; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); } .pending { color:var(--muted); }
+  label { font-size:14px; color:var(--muted); }
+  audio { width:100%; margin-top:6px; }
+</style>
+</head>
+<body>
+<h1>Falar · iPhone spike</h1>
+<p class="sub">Run each test, then tap <b>Copy report</b> and paste it back to Claude. Do it once in Safari and once from the home-screen app.</p>
+
+<section>
+  <h2>0 · Environment <span id="b-env" class="badge pending">–</span></h2>
+  <div id="env" class="out"></div>
+</section>
+
+<section>
+  <h2>1 · pt-PT voice (TTS) <span id="b-tts" class="badge pending">not run</span></h2>
+  <label>Voice</label>
+  <select id="voice"></select>
+  <label>Sentence</label>
+  <select id="sentence">
+    <option>Bom dia! Queria um galão e um pastel de nata, por favor.</option>
+    <option>Está boa a onda hoje no Baleal?</option>
+    <option>Desculpe, pode repetir mais devagar? Não percebi.</option>
+    <option>Moro no terceiro andar. Pode deixar à porta.</option>
+    <option>Estou a aprender português. Chamo-me Ana.</option>
+  </select>
+  <div class="row">
+    <button id="speak">▶ Speak 1×</button>
+    <button id="speakSlow" class="secondary">▶ 0.7×</button>
+  </div>
+  <div class="row">
+    <button id="ttsGood" class="secondary">Sounds European ✓</button>
+    <button id="ttsBad" class="secondary">Sounds Brazilian / bad ✗</button>
+  </div>
+  <div id="tts-out" class="out"></div>
+</section>
+
+<section>
+  <h2>2 · Mic recording <span id="b-rec" class="badge pending">not run</span></h2>
+  <div class="row">
+    <button id="recStart">● Record</button>
+    <button id="recStop" class="secondary" disabled>■ Stop</button>
+  </div>
+  <audio id="playback" controls></audio>
+  <div id="rec-out" class="out"></div>
+</section>
+
+<section>
+  <h2>3 · Speech recognition (pt-PT) <span id="b-asr" class="badge pending">not run</span></h2>
+  <p class="out">Say the sentence selected in test 1. On iPhone, Dictation (Siri) must be enabled.</p>
+  <button id="asrStart">🎤 Listen</button>
+  <div id="asr-out" class="out"></div>
+</section>
+
+<section>
+  <h2>4 · Storage persistence <span id="b-db" class="badge pending">–</span></h2>
+  <div id="db-out" class="out"></div>
+  <button id="persist" class="secondary">Request persistent storage</button>
+</section>
+
+<section>
+  <h2>5 · Gemini fallback (optional) <span id="b-gem" class="badge pending">not run</span></h2>
+  <p class="out">Sends the recording from test 2 to Gemini for transcription. Free key from aistudio.google.com. The key is stored only on this device.</p>
+  <label>API key</label>
+  <input id="gemKey" type="password" autocomplete="off" placeholder="AIza…">
+  <label>Model</label>
+  <input id="gemModel" value="gemini-2.5-flash">
+  <button id="gemRun">Transcribe recording</button>
+  <div id="gem-out" class="out"></div>
+</section>
+
+<section>
+  <h2>Report</h2>
+  <button id="copy">Copy report</button>
+  <textarea id="report" rows="8" readonly></textarea>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const results = {};
+function set(key, status, detail) {
+  results[key] = { status, ...detail };
+  const b = $('b-' + key);
+  b.textContent = status;
+  b.className = 'badge ' + ({ pass:'ok', fail:'bad', partial:'warn' }[status] || 'pending');
+  $('report').value = buildReport();
+}
+function buildReport() {
+  return JSON.stringify({ when: new Date().toISOString(), results }, null, 2);
+}
+function norm(s) { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim(); }
+function similarity(a, b) {
+  const A = norm(a).split(' '), B = new Set(norm(b).split(' '));
+  return A.length ? A.filter(w => B.has(w)).length / A.length : 0;
+}
+
+// 0 · Environment
+const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+const env = {
+  mode: standalone ? 'home-screen (standalone)' : 'browser tab',
+  userAgent: navigator.userAgent,
+  secureContext: isSecureContext,
+  speechSynthesis: 'speechSynthesis' in window,
+  mediaRecorder: 'MediaRecorder' in window,
+  speechRecognition: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+  serviceWorker: 'serviceWorker' in navigator,
+};
+$('env').textContent = Object.entries(env).map(([k, v]) => `${k}: ${v}`).join('\n');
+set('env', standalone ? 'standalone' : 'browser', env);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// 1 · TTS
+let voices = [];
+function loadVoices() {
+  voices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('pt'));
+  voices.sort((a, b) => (b.lang === 'pt-PT') - (a.lang === 'pt-PT'));
+  $('voice').innerHTML = voices.map((v, i) => `<option value="${i}">${v.name} · ${v.lang}${v.localService ? '' : ' · online'}</option>`).join('')
+    || '<option>No Portuguese voices found</option>';
+  const ptPT = voices.filter(v => v.lang.replace('_', '-') === 'pt-PT').map(v => v.name);
+  $('tts-out').textContent = `pt-PT voices: ${ptPT.join(', ') || 'none'}\nAll pt voices: ${voices.map(v => v.name + ' (' + v.lang + ')').join(', ') || 'none'}`;
+  results.ttsVoices = { ptPT, all: voices.map(v => `${v.name} (${v.lang})`) };
+}
+if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+function speak(rate) {
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance($('sentence').value);
+  const v = voices[+$('voice').value];
+  if (v) u.voice = v;
+  u.lang = v ? v.lang : 'pt-PT';
+  u.rate = rate;
+  u.onerror = e => set('tts', 'fail', { error: e.error });
+  speechSynthesis.speak(u);
+}
+$('speak').onclick = () => speak(1);
+$('speakSlow').onclick = () => speak(0.7);
+const ttsVerdict = ok => set('tts', ok ? 'pass' : 'fail', { voice: voices[+$('voice').value]?.name, verdict: ok ? 'sounds European' : 'sounds Brazilian / bad', ...results.ttsVoices });
+$('ttsGood').onclick = () => ttsVerdict(true);
+$('ttsBad').onclick = () => ttsVerdict(false);
+
+// 2 · Recording
+let recorder, chunks = [], lastBlob = null;
+$('recStart').onclick = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recorder = new MediaRecorder(stream);
+    chunks = [];
+    recorder.ondataavailable = e => chunks.push(e.data);
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      lastBlob = new Blob(chunks, { type: recorder.mimeType });
+      $('playback').src = URL.createObjectURL(lastBlob);
+      $('rec-out').textContent = `Recorded ${(lastBlob.size / 1024).toFixed(1)} KB as ${recorder.mimeType}. Play it back. Does it sound clear?`;
+      set('rec', 'pass', { mimeType: recorder.mimeType, kb: +(lastBlob.size / 1024).toFixed(1) });
+    };
+    recorder.start();
+    $('recStart').disabled = true; $('recStop').disabled = false;
+    $('rec-out').textContent = 'Recording… say the sentence from test 1.';
+  } catch (e) { set('rec', 'fail', { error: e.name + ': ' + e.message }); $('rec-out').textContent = e.message; }
+};
+$('recStop').onclick = () => { recorder.stop(); $('recStart').disabled = false; $('recStop').disabled = true; };
+
+// 3 · Speech recognition
+$('asrStart').onclick = () => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { set('asr', 'fail', { error: 'not supported' }); $('asr-out').textContent = 'Not supported in this mode.'; return; }
+  const r = new SR();
+  r.lang = 'pt-PT'; r.interimResults = true; r.maxAlternatives = 3; r.continuous = false;
+  const target = $('sentence').value;
+  let final = null;
+  $('asr-out').textContent = 'Listening…';
+  r.onresult = e => {
+    const res = e.results[e.results.length - 1];
+    const alts = Array.from(res).map(a => `${a.transcript} (${(a.confidence * 100).toFixed(0)}%)`);
+    $('asr-out').textContent = (res.isFinal ? 'Final: ' : 'Hearing: ') + alts.join('\n  alt: ');
+    if (res.isFinal) final = res[0].transcript;
+  };
+  r.onerror = e => { set('asr', 'fail', { error: e.error }); $('asr-out').textContent = 'Error: ' + e.error; };
+  r.onend = () => {
+    if (results.asr?.status === 'fail' && !final) return;
+    if (!final) { set('asr', 'fail', { error: 'no result' }); $('asr-out').textContent += '\nNo result.'; return; }
+    const score = similarity(target, final);
+    $('asr-out').textContent += `\nWord match vs target: ${(score * 100).toFixed(0)}%`;
+    set('asr', score >= 0.7 ? 'pass' : 'partial', { target, heard: final, wordMatch: +score.toFixed(2) });
+  };
+  try { r.start(); } catch (e) { set('asr', 'fail', { error: e.message }); }
+};
+
+// 4 · Storage
+function idb() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('falar-spike', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('kv');
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function storageCheck() {
+  try {
+    const db = await idb();
+    const tx = db.transaction('kv', 'readwrite'), st = tx.objectStore('kv');
+    const get = k => new Promise(r => { const q = st.get(k); q.onsuccess = () => r(q.result); });
+    const state = (await get('state')) || { firstSeen: new Date().toISOString(), visits: 0 };
+    state.visits++; state.lastSeen = new Date().toISOString();
+    st.put(state, 'state');
+    const persisted = navigator.storage?.persisted ? await navigator.storage.persisted() : 'n/a';
+    const est = navigator.storage?.estimate ? await navigator.storage.estimate() : null;
+    const days = ((Date.now() - new Date(state.firstSeen)) / 864e5).toFixed(1);
+    $('db-out').textContent = `First seen: ${state.firstSeen}\nVisits: ${state.visits}  ·  data age: ${days} days\nPersistent: ${persisted}\nQuota: ${est ? (est.quota / 1e6).toFixed(0) + ' MB' : 'n/a'}\n\nRe-open after a few days: if visits keep counting up, data survives.\nNote: Safari and the home-screen app have separate storage.`;
+    set('db', state.visits > 1 ? 'pass' : 'written', { ...state, dataAgeDays: +days, persisted });
+  } catch (e) { set('db', 'fail', { error: e.message }); }
+}
+storageCheck();
+$('persist').onclick = async () => {
+  const ok = navigator.storage?.persist ? await navigator.storage.persist() : 'n/a';
+  results.db = { ...results.db, persistRequest: ok };
+  $('db-out').textContent += `\nPersist request granted: ${ok}`;
+  $('report').value = buildReport();
+};
+
+// 5 · Gemini
+try { $('gemKey').value = localStorage.getItem('gemKey') || ''; } catch {}
+$('gemRun').onclick = async () => {
+  if (!lastBlob) { $('gem-out').textContent = 'Record something in test 2 first.'; return; }
+  const key = $('gemKey').value.trim();
+  if (!key) { $('gem-out').textContent = 'Enter an API key.'; return; }
+  try { localStorage.setItem('gemKey', key); } catch {}
+  $('gem-out').textContent = 'Sending…';
+  const t0 = performance.now();
+  try {
+    const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(',')[1]); fr.readAsDataURL(lastBlob); });
+    const mime = lastBlob.type.split(';')[0] || 'audio/mp4';
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent($('gemModel').value.trim())}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({ contents: [{ parts: [
+        { text: 'Transcribe this European Portuguese audio exactly. Reply with the transcript only.' },
+        { inline_data: { mime_type: mime, data: b64 } }
+      ] }] })
+    });
+    const data = await resp.json();
+    const ms = Math.round(performance.now() - t0);
+    if (!resp.ok) throw new Error(`${resp.status}: ${data.error?.message || 'unknown error'}`);
+    const text = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('').trim() || '';
+    const score = similarity($('sentence').value, text);
+    $('gem-out').textContent = `Heard: ${text}\nWord match vs target: ${(score * 100).toFixed(0)}%  ·  ${ms} ms`;
+    set('gem', score >= 0.7 ? 'pass' : 'partial', { model: $('gemModel').value, mime, heard: text, wordMatch: +score.toFixed(2), ms });
+  } catch (e) { set('gem', 'fail', { error: e.message }); $('gem-out').textContent = 'Error: ' + e.message; }
+};
+
+// Report
+$('copy').onclick = async () => {
+  $('report').value = buildReport();
+  try { await navigator.clipboard.writeText($('report').value); $('copy').textContent = 'Copied ✓'; }
+  catch { $('report').select(); document.execCommand('copy'); $('copy').textContent = 'Copied ✓'; }
+  setTimeout(() => $('copy').textContent = 'Copy report', 1500);
+};
+</script>
+</body>
+</html>
